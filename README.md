@@ -3,7 +3,7 @@
 
 ![alt text](http://i.imgur.com/c3XmCC6.jpg "Money")
 
-This is a fork of [go-money](github.com/rhymond/go-money) that uses (github.com/shopspring/decimal) instead of int64 to store the amount. This allows for more functionality when working with money, including but not limited to multiply and divide operations by float values.
+This is a fork of [go-money](https://github.com/rhymond/go-money) that uses (github.com/shopspring/decimal) instead of int64 to store the amount. This allows for more functionality when working with money, including but not limited to multiply and divide operations by float values.
 
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/rezaalavi/gmoney)](https://goreportcard.com/report/github.com/rezaalavi/gmoney)
