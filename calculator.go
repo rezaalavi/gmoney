@@ -1,73 +1,48 @@
 package money
 
-import "math"
+import "github.com/shopspring/decimal"
 
 type calculator struct{}
 
 func (c *calculator) add(a, b Amount) Amount {
-	return a + b
+	return a.Add(b)
 }
 
 func (c *calculator) subtract(a, b Amount) Amount {
-	return a - b
+	return a.Sub(b)
 }
 
-func (c *calculator) multiply(a Amount, m int64) Amount {
-	return a * m
+func (c *calculator) multiply(a Amount, m Amount) Amount {
+	return a.Mul(m)
 }
 
-func (c *calculator) divide(a Amount, d int64) Amount {
-	return a / d
+func (c *calculator) divide(a Amount, d Amount, precision int32) Amount {
+	return a.Div(d).Truncate(precision)
 }
 
-func (c *calculator) modulus(a Amount, d int64) Amount {
-	return a % d
+func (c *calculator) modulus(a Amount, b Amount, precision int32) Amount {
+	_, rem := a.QuoRem(b, precision)
+	return rem
 }
 
-func (c *calculator) allocate(a Amount, r, s int64) Amount {
-	if a == 0 || s == 0 {
-		return 0
+func (c *calculator) allocate(a, r, s Amount, precision int32) Amount {
+	if a.IsZero() || s.IsZero() {
+		return decimal.NewFromInt(0)
 	}
 
-	return a * r / s
+	return a.Mul(r).DivRound(s, precision)
 }
 
 func (c *calculator) absolute(a Amount) Amount {
-	if a < 0 {
-		return -a
-	}
-
-	return a
+	return a.Abs()
 }
 
 func (c *calculator) negative(a Amount) Amount {
-	if a > 0 {
-		return -a
-	}
 
-	return a
+	return a.Neg()
 }
 
-func (c *calculator) round(a Amount, e int) Amount {
-	if a == 0 {
-		return 0
-	}
+func (c *calculator) round(a Amount, e int32) Amount {
 
-	absam := c.absolute(a)
-	exp := int64(math.Pow(10, float64(e)))
-	m := absam % exp
-
-	if m > (exp / 2) {
-		absam += exp
-	}
-
-	absam = (absam / exp) * exp
-
-	if a < 0 {
-		a = -absam
-	} else {
-		a = absam
-	}
-
-	return a
+	return a.Round(e)
 }

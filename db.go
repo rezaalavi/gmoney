@@ -3,8 +3,10 @@ package money
 import (
 	"database/sql/driver"
 	"fmt"
-	"strconv"
 	"strings"
+
+	"github.com/shopspring/decimal"
+	"github.com/spf13/cast"
 )
 
 var (
@@ -23,7 +25,7 @@ const (
 // Value implements driver.Valuer to serialise a Money instance into a delimited string using the DBMoneyValueSeparator
 // for example: "amount|currency_code"
 func (m *Money) Value() (driver.Value, error) {
-	return fmt.Sprintf("%d%s%s", m.amount, DBMoneyValueSeparator, m.Currency().Code), nil
+	return fmt.Sprintf("%."+cast.ToString(m.currency.Fraction)+"f%s%s", m.Amount(), DBMoneyValueSeparator, m.Currency().Code), nil
 }
 
 // Scan implements sql.Scanner to deserialize a Money instance from a DBMoneyValueSeparator-separated string
@@ -40,11 +42,8 @@ func (m *Money) Scan(src interface{}) error {
 			return fmt.Errorf("%#v is not valid to scan into Money; update your query to return a money.DBMoneyValueSeparator-separated pair of \"amount%scurrency_code\"", src.(string), DBMoneyValueSeparator)
 		}
 
-		if a, err := strconv.ParseInt(parts[0], 10, 64); err == nil {
-			amount = a
-		} else {
-			return fmt.Errorf("scanning %#v into an Amount: %v", parts[0], err)
-		}
+		_amount := cast.ToFloat64(parts[0])
+		amount = decimal.NewFromFloat(_amount)
 
 		if err := currency.Scan(parts[1]); err != nil {
 			return fmt.Errorf("scanning %#v into a Currency: %v", parts[1], err)

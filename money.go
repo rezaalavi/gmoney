@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
+
+	"github.com/shopspring/decimal"
+	"github.com/spf13/cast"
 )
 
 // Injection points for backward compatibility.
@@ -24,6 +26,9 @@ var (
 
 	// ErrInvalidJSONUnmarshal happens when the default money.UnmarshalJSON fails to unmarshal Money because of invalid data.
 	ErrInvalidJSONUnmarshal = errors.New("invalid json unmarshal")
+
+	zero = decimal.NewFromInt(0)
+	one  = decimal.NewFromInt(1)
 )
 
 func defaultUnmarshalJSON(m *Money, b []byte) error {
@@ -53,7 +58,7 @@ func defaultUnmarshalJSON(m *Money, b []byte) error {
 	if amount == 0 && currency == "" {
 		ref = &Money{}
 	} else {
-		ref = New(int64(amount), currency)
+		ref = New(decimal.NewFromFloat(amount), currency)
 	}
 
 	*m = *ref
@@ -62,15 +67,15 @@ func defaultUnmarshalJSON(m *Money, b []byte) error {
 
 func defaultMarshalJSON(m Money) ([]byte, error) {
 	if m == (Money{}) {
-		m = *New(0, "")
+		m = *New(zero, "")
 	}
 
-	buff := bytes.NewBufferString(fmt.Sprintf(`{"amount": %d, "currency": "%s"}`, m.Amount(), m.Currency().Code))
+	buff := bytes.NewBufferString(fmt.Sprintf(`{"amount": %.`+cast.ToString(m.currency.Fraction)+`f, "currency": "%s"}`, m.Amount(), m.Currency().Code))
 	return buff.Bytes(), nil
 }
 
 // Amount is a data structure that stores the amount being used for calculations.
-type Amount = int64
+type Amount = decimal.Decimal
 
 // Money represents monetary value information, stores
 // currency and amount value.
@@ -80,18 +85,19 @@ type Money struct {
 }
 
 // New creates and returns new instance of Money.
-func New(amount int64, code string) *Money {
+func New(amount any, code string) *Money {
+	currency := newCurrency(code).get()
 	return &Money{
-		amount:   amount,
-		currency: newCurrency(code).get(),
+		amount:   ConvertToDecimal(amount),
+		currency: currency,
 	}
 }
 
 // NewFromFloat creates and returns new instance of Money from a float64.
 // Always rounding trailing decimals down.
-func NewFromFloat(amount float64, code string) *Money {
-	currencyDecimals := math.Pow10(newCurrency(code).get().Fraction)
-	return New(int64(amount*currencyDecimals), code)
+func NewFromFloat(_amount float64, code string) *Money {
+	amount := decimal.NewFromFloat(_amount)
+	return New(amount, code)
 }
 
 // Currency returns the currency used by Money.
@@ -100,8 +106,9 @@ func (m *Money) Currency() *Currency {
 }
 
 // Amount returns a copy of the internal monetary value as an int64.
-func (m *Money) Amount() int64 {
-	return m.amount
+func (m *Money) Amount() float64 {
+	val, _ := m.amount.Truncate(m.currency.Fraction).Float64()
+	return val
 }
 
 // SameCurrency check if given Money is equals by currency.
@@ -118,14 +125,8 @@ func (m *Money) assertSameCurrency(om *Money) error {
 }
 
 func (m *Money) compare(om *Money) int {
-	switch {
-	case m.amount > om.amount:
-		return 1
-	case m.amount < om.amount:
-		return -1
-	}
+	return m.amount.Compare(om.amount)
 
-	return 0
 }
 
 // Equals checks equality between two Money types.
@@ -175,17 +176,17 @@ func (m *Money) LessThanOrEqual(om *Money) (bool, error) {
 
 // IsZero returns boolean of whether the value of Money is equals to zero.
 func (m *Money) IsZero() bool {
-	return m.amount == 0
+	return m.amount.IsZero()
 }
 
 // IsPositive returns boolean of whether the value of Money is positive.
 func (m *Money) IsPositive() bool {
-	return m.amount > 0
+	return m.amount.GreaterThan(decimal.NewFromInt(0))
 }
 
 // IsNegative returns boolean of whether the value of Money is negative.
 func (m *Money) IsNegative() bool {
-	return m.amount < 0
+	return m.amount.LessThan(decimal.NewFromInt(0))
 }
 
 // Absolute returns new Money struct from given Money using absolute monetary value.
@@ -204,7 +205,7 @@ func (m *Money) Add(ms ...*Money) (*Money, error) {
 		return m, nil
 	}
 
-	k := New(0, m.currency.Code)
+	k := New(decimal.NewFromInt(0), m.currency.Code)
 
 	for _, m2 := range ms {
 		if err := m.assertSameCurrency(m2); err != nil {
@@ -223,7 +224,7 @@ func (m *Money) Subtract(ms ...*Money) (*Money, error) {
 		return m, nil
 	}
 
-	k := New(0, m.currency.Code)
+	k := New(decimal.NewFromInt(0), m.currency.Code)
 
 	for _, m2 := range ms {
 		if err := m.assertSameCurrency(m2); err != nil {
@@ -237,15 +238,16 @@ func (m *Money) Subtract(ms ...*Money) (*Money, error) {
 }
 
 // Multiply returns new Money struct with value representing Self multiplied value by multiplier.
-func (m *Money) Multiply(muls ...int64) *Money {
+func (m *Money) Multiply(muls ...any) *Money {
 	if len(muls) == 0 {
 		panic("At least one multiplier is required to multiply")
 	}
 
-	k := New(1, m.currency.Code)
+	k := New(one, m.currency.Code)
 
 	for _, m2 := range muls {
-		k.amount = mutate.calc.multiply(k.amount, m2)
+
+		k.amount = mutate.calc.multiply(k.amount, ConvertToDecimal(m2))
 	}
 
 	return &Money{amount: mutate.calc.multiply(m.amount, k.amount), currency: m.currency}
@@ -253,7 +255,7 @@ func (m *Money) Multiply(muls ...int64) *Money {
 
 // Round returns new Money struct with value rounded to nearest zero.
 func (m *Money) Round() *Money {
-	return &Money{amount: mutate.calc.round(m.amount, m.currency.Fraction), currency: m.currency}
+	return &Money{amount: mutate.calc.round(m.amount, 0), currency: m.currency}
 }
 
 // Split returns slice of Money structs with split Self value in given number.
@@ -264,24 +266,27 @@ func (m *Money) Split(n int) ([]*Money, error) {
 		return nil, errors.New("split must be higher than zero")
 	}
 
-	a := mutate.calc.divide(m.amount, int64(n))
+	a := mutate.calc.divide(m.amount, decimal.NewFromInt(int64(n)), m.currency.Fraction)
 	ms := make([]*Money, n)
 
 	for i := 0; i < n; i++ {
 		ms[i] = &Money{amount: a, currency: m.currency}
 	}
 
-	r := mutate.calc.modulus(m.amount, int64(n))
-	l := mutate.calc.absolute(r)
+	r := mutate.calc.modulus(m.amount, decimal.NewFromInt(int64(n)), m.currency.Fraction)
+	// l := mutate.calc.absolute(r)
 	// Add leftovers to the first parties.
-
-	v := int64(1)
-	if m.amount < 0 {
-		v = -1
+	v := one.Div(decimal.NewFromInt(10).Pow(decimal.NewFromInt32(m.currency.Fraction)))
+	// v := one
+	if m.amount.IsNegative() {
+		v = v.Neg()
 	}
-	for p := 0; l != 0; p++ {
+	for p := 0; !r.IsZero(); p++ {
 		ms[p].amount = mutate.calc.add(ms[p].amount, v)
-		l--
+		r = r.Sub(v)
+		if p == n-1 {
+			p = 0
+		}
 	}
 
 	return ms, nil
@@ -290,55 +295,55 @@ func (m *Money) Split(n int) ([]*Money, error) {
 // Allocate returns slice of Money structs with split Self value in given ratios.
 // It lets split money by given ratios without losing pennies and as Split operations distributes
 // leftover pennies amongst the parties with round-robin principle.
-func (m *Money) Allocate(rs ...int) ([]*Money, error) {
-	if len(rs) == 0 {
-		return nil, errors.New("no ratios specified")
-	}
+// func (m *Money) Allocate(rs ...int) ([]*Money, error) {
+// 	if len(rs) == 0 {
+// 		return nil, errors.New("no ratios specified")
+// 	}
 
-	// Calculate sum of ratios.
-	var sum int64
-	for _, r := range rs {
-		if r < 0 {
-			return nil, errors.New("negative ratios not allowed")
-		}
-		if int64(r) > (math.MaxInt64 - sum) {
-			return nil, errors.New("sum of given ratios exceeds max int")
-		}
-		sum += int64(r)
-	}
+// 	// Calculate sum of ratios.
+// 	var sum decimal.Decimal
+// 	for _, r := range rs {
+// 		if r < 0 {
+// 			return nil, errors.New("negative ratios not allowed")
+// 		}
+// 		if int64(r) > (math.MaxInt64 - sum) {
+// 			return nil, errors.New("sum of given ratios exceeds max int")
+// 		}
+// 		sum += int64(r)
+// 	}
 
-	var total int64
-	ms := make([]*Money, 0, len(rs))
-	for _, r := range rs {
-		party := &Money{
-			amount:   mutate.calc.allocate(m.amount, int64(r), sum),
-			currency: m.currency,
-		}
+// 	var total int64
+// 	ms := make([]*Money, 0, len(rs))
+// 	for _, r := range rs {
+// 		party := &Money{
+// 			amount:   mutate.calc.allocate(m.amount, r, sum, m.currency.Fraction),
+// 			currency: m.currency,
+// 		}
 
-		ms = append(ms, party)
-		total += party.amount
-	}
+// 		ms = append(ms, party)
+// 		total += party.amount
+// 	}
 
-	// if the sum of all ratios is zero, then we just returns zeros and don't do anything
-	// with the leftover
-	if sum == 0 {
-		return ms, nil
-	}
+// 	// if the sum of all ratios is zero, then we just returns zeros and don't do anything
+// 	// with the leftover
+// 	if sum == 0 {
+// 		return ms, nil
+// 	}
 
-	// Calculate leftover value and divide to first parties.
-	lo := m.amount - total
-	sub := int64(1)
-	if lo < 0 {
-		sub = -sub
-	}
+// 	// Calculate leftover value and divide to first parties.
+// 	lo := m.amount - total
+// 	sub := int64(1)
+// 	if lo < 0 {
+// 		sub = -sub
+// 	}
 
-	for p := 0; lo != 0; p++ {
-		ms[p].amount = mutate.calc.add(ms[p].amount, sub)
-		lo -= sub
-	}
+// 	for p := 0; lo != 0; p++ {
+// 		ms[p].amount = mutate.calc.add(ms[p].amount, sub)
+// 		lo -= sub
+// 	}
 
-	return ms, nil
-}
+// 	return ms, nil
+// }
 
 // Display lets represent Money struct as string in given Currency value.
 func (m *Money) Display() string {
@@ -349,7 +354,10 @@ func (m *Money) Display() string {
 // AsMajorUnits lets represent Money struct as subunits (float64) in given Currency value
 func (m *Money) AsMajorUnits() float64 {
 	c := m.currency.get()
-	return c.Formatter().ToMajorUnits(m.amount)
+	if c.Fraction == 0 {
+		return float64(m.amount.Round(0).IntPart())
+	}
+	return m.Amount()
 }
 
 // UnmarshalJSON is implementation of json.Unmarshaller
@@ -371,8 +379,50 @@ func (m Money) MarshalJSON() ([]byte, error) {
 // If compare moneys from distinct currency, return (m.amount, ErrCurrencyMismatch)
 func (m *Money) Compare(om *Money) (int, error) {
 	if err := m.assertSameCurrency(om); err != nil {
-		return int(m.amount), err
+		return m.compare(om), err
 	}
 
 	return m.compare(om), nil
+}
+
+func ConvertToDecimal[T any](value T) decimal.Decimal {
+	switch v := any(value).(type) {
+	case int:
+		return decimal.NewFromInt(int64(v))
+	case int8:
+		return decimal.NewFromInt(int64(v))
+	case int16:
+		return decimal.NewFromInt(int64(v))
+	case int32:
+		return decimal.NewFromInt(int64(v))
+	case int64:
+		return decimal.NewFromInt(v)
+	case uint:
+		return decimal.NewFromInt(int64(v))
+	case uint8:
+		return decimal.NewFromInt(int64(v))
+	case uint16:
+		return decimal.NewFromInt(int64(v))
+	case uint32:
+		return decimal.NewFromInt(int64(v))
+	case uint64:
+		return decimal.NewFromInt(int64(v))
+	case float32:
+		return decimal.NewFromFloat(float64(v))
+	case float64:
+		return decimal.NewFromFloat(float64(v))
+	case string:
+		dec, err := decimal.NewFromString(v)
+		if err != nil {
+			panic(err)
+		}
+		return dec
+	case decimal.Decimal:
+		return v
+	case *decimal.Decimal:
+		return *v
+
+	default:
+		panic("unsupported type")
+	}
 }

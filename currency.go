@@ -8,7 +8,7 @@ import (
 type Currency struct {
 	Code        string
 	NumericCode string
-	Fraction    int
+	Fraction    int32
 	Grapheme    string
 	Template    string
 	Decimal     string
@@ -225,7 +225,7 @@ var currencies = Currencies{
 }
 
 // AddCurrency lets you insert or update currency in currencies list.
-func AddCurrency(code, Grapheme, Template, Decimal, Thousand string, Fraction int) *Currency {
+func AddCurrency(code, Grapheme, Template, Decimal, Thousand string, Fraction int32) *Currency {
 	c := Currency{
 		Code:     code,
 		Grapheme: Grapheme,

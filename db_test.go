@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/shopspring/decimal"
 )
 
 func TestMoney_Value(t *testing.T) {
@@ -15,14 +17,14 @@ func TestMoney_Value(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			have:      New(10, CAD),
+			have:      New(decimal.NewFromInt(10), CAD),
 			separator: "|",
-			want:      "10|CAD",
+			want:      "10.00|CAD",
 		},
 		{
-			have:      New(-10, USD),
+			have:      New(decimal.NewFromInt(-10), USD),
 			separator: "+-+",
-			want:      "-10+-+USD",
+			want:      "-10.00+-+USD",
 		},
 	}
 	for _, tt := range tests {
@@ -50,16 +52,16 @@ func TestMoney_Scan(t *testing.T) {
 	}{
 		{
 			src:  "10|CAD",
-			want: New(10, CAD),
+			want: New(decimal.NewFromInt(10), CAD),
 		},
 		{
 			src:  "20|USD",
-			want: New(20, USD),
+			want: New(decimal.NewFromInt(20), USD),
 		},
 		{
-			src:       "30000,IDR",
+			src:       "300.00,IDR",
 			separator: ",",
-			want:      New(30000, IDR),
+			want:      New(decimal.NewFromInt(300.00), IDR),
 		},
 		{
 			src:     "10|",
