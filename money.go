@@ -80,8 +80,8 @@ type Amount = decimal.Decimal
 // Money represents monetary value information, stores
 // currency and amount value.
 type Money struct {
-	amount   Amount    `db:"amount"`
 	currency *Currency `db:"currency"`
+	amount   Amount    `db:"amount"`
 }
 
 // New creates and returns new instance of Money.
@@ -256,6 +256,9 @@ func (m *Money) Multiply(muls ...any) *Money {
 // Round returns new Money struct with value rounded to nearest zero.
 func (m *Money) Round() *Money {
 	return &Money{amount: mutate.calc.round(m.amount, 0), currency: m.currency}
+}
+func (m *Money) Divide(amount any) *Money {
+	return &Money{amount: mutate.calc.divide(m.amount, ConvertToDecimal(amount), m.currency.Fraction), currency: m.currency}
 }
 
 // Split returns slice of Money structs with split Self value in given number.

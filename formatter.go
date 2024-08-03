@@ -9,11 +9,11 @@ import (
 
 // Formatter stores Money formatting information.
 type Formatter struct {
-	Fraction int32
 	Decimal  string
 	Thousand string
 	Grapheme string
 	Template string
+	Fraction int32
 }
 
 // NewFormatter creates new Formatter instance.

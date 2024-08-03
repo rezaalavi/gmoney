@@ -8,11 +8,11 @@ import (
 type Currency struct {
 	Code        string
 	NumericCode string
-	Fraction    int32
 	Grapheme    string
 	Template    string
 	Decimal     string
 	Thousand    string
+	Fraction    int32
 }
 
 type Currencies map[string]*Currency
