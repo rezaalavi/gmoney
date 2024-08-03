@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/shopspring/decimal"
 	"github.com/spf13/cast"
 )
@@ -27,9 +28,10 @@ var (
 	// ErrInvalidJSONUnmarshal happens when the default money.UnmarshalJSON fails to unmarshal Money because of invalid data.
 	ErrInvalidJSONUnmarshal = errors.New("invalid json unmarshal")
 
-	zero = decimal.NewFromInt(0)
-	one  = decimal.NewFromInt(1)
+	one = decimal.NewFromInt(1)
 )
+
+var Zero = New(0, "")
 
 func defaultUnmarshalJSON(m *Money, b []byte) error {
 	data := make(map[string]interface{})
@@ -67,7 +69,7 @@ func defaultUnmarshalJSON(m *Money, b []byte) error {
 
 func defaultMarshalJSON(m Money) ([]byte, error) {
 	if m == (Money{}) {
-		m = *New(zero, "")
+		m = *New(0, "")
 	}
 
 	buff := bytes.NewBufferString(fmt.Sprintf(`{"amount": %.`+cast.ToString(m.currency.Fraction)+`f, "currency": "%s"}`, m.Amount(), m.Currency().Code))
@@ -204,10 +206,23 @@ func (m *Money) Add(ms ...*Money) (*Money, error) {
 	if len(ms) == 0 {
 		return m, nil
 	}
-
-	k := New(decimal.NewFromInt(0), m.currency.Code)
+	var k *Money
+	if m.currency != nil && m.currency.Code != "" {
+		k = New(0, m.currency.Code)
+	} else {
+		fnzv := lo.Find(ms, func(m *Money) bool {
+			if m.currency != nil && m.currency.Code != "" {
+				return true
+			}
+			return false
+		})
+		k = New(0, fnzv.currency.Code)
+	}
 
 	for _, m2 := range ms {
+		if m2.IsZero() {
+			continue
+		}
 		if err := m.assertSameCurrency(m2); err != nil {
 			return nil, err
 		}
@@ -224,9 +239,23 @@ func (m *Money) Subtract(ms ...*Money) (*Money, error) {
 		return m, nil
 	}
 
-	k := New(decimal.NewFromInt(0), m.currency.Code)
+	var k *Money
+	if m.currency != nil && m.currency.Code != "" {
+		k = New(0, m.currency.Code)
+	} else {
+		fnzv := lo.Find(ms, func(m *Money) bool {
+			if m.currency != nil && m.currency.Code != "" {
+				return true
+			}
+			return false
+		})
+		k = New(0, fnzv.currency.Code)
+	}
 
 	for _, m2 := range ms {
+		if m2.IsZero() {
+			continue
+		}
 		if err := m.assertSameCurrency(m2); err != nil {
 			return nil, err
 		}
@@ -243,7 +272,7 @@ func (m *Money) Multiply(muls ...any) *Money {
 		panic("At least one multiplier is required to multiply")
 	}
 
-	k := New(one, m.currency.Code)
+	k := New(1, m.currency.Code)
 
 	for _, m2 := range muls {
 
@@ -259,6 +288,11 @@ func (m *Money) Round() *Money {
 }
 func (m *Money) Divide(amount any) *Money {
 	return &Money{amount: mutate.calc.divide(m.amount, ConvertToDecimal(amount), m.currency.Fraction), currency: m.currency}
+}
+
+func (m *Money) SetCurrency(code string) *Money {
+	m.currency = newCurrency(code).get()
+	return m
 }
 
 // Split returns slice of Money structs with split Self value in given number.

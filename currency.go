@@ -262,7 +262,7 @@ func (c *Currency) Formatter() *Formatter {
 // getDefault represent default currency if currency is not found in currencies list.
 // Grapheme and Code fields will be changed by currency code.
 func (c *Currency) getDefault() *Currency {
-	return &Currency{Decimal: ".", Thousand: ",", Code: c.Code, Fraction: 2, Grapheme: c.Code, Template: "1$"}
+	return &Currency{Decimal: ".", Thousand: ",", Code: c.Code, Fraction: 2, Grapheme: c.Grapheme, Template: "1$"}
 }
 
 // get extended currency using currencies list.
