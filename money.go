@@ -210,12 +210,15 @@ func (m *Money) Add(ms ...*Money) (*Money, error) {
 	if m.currency != nil && m.currency.Code != "" {
 		k = New(0, m.currency.Code)
 	} else {
-		fnzv := lo.Find(ms, func(m *Money) bool {
+		fnzv, found := lo.Find(ms, func(m *Money) bool {
 			if m.currency != nil && m.currency.Code != "" {
 				return true
 			}
 			return false
 		})
+		if !found {
+			return nil, errors.New("no currency found")
+		}
 		k = New(0, fnzv.currency.Code)
 	}
 
@@ -243,12 +246,15 @@ func (m *Money) Subtract(ms ...*Money) (*Money, error) {
 	if m.currency != nil && m.currency.Code != "" {
 		k = New(0, m.currency.Code)
 	} else {
-		fnzv := lo.Find(ms, func(m *Money) bool {
+		fnzv, ok := lo.Find(ms, func(m *Money) bool {
 			if m.currency != nil && m.currency.Code != "" {
 				return true
 			}
 			return false
 		})
+		if !ok {
+			return nil, errors.New("no currency found")
+		}
 		k = New(0, fnzv.currency.Code)
 	}
 
