@@ -201,6 +201,10 @@ func (m *Money) Negative() *Money {
 	return &Money{amount: mutate.calc.negative(m.amount), currency: m.currency}
 }
 
+func (m *Money) ToDecimal() decimal.Decimal {
+	return m.amount
+}
+
 // Add returns new Money struct with value representing sum of Self and Other Money.
 func (m *Money) Add(ms ...*Money) (*Money, error) {
 	if len(ms) == 0 {
@@ -296,7 +300,7 @@ func (m *Money) Divide(amount any) *Money {
 	return &Money{amount: mutate.calc.divide(m.amount, ConvertToDecimal(amount), m.currency.Fraction), currency: m.currency}
 }
 
-func (m *Money) SetCurrency(code string) *Money {
+func (m *Money) setCurrency(code string) *Money {
 	m.currency = newCurrency(code).get()
 	return m
 }
