@@ -398,6 +398,13 @@ func (m *Money) Display() string {
 	return c.Formatter().Format(m.amount)
 }
 
+// Similar to Display but without the currency symbol
+func (m *Money) Simple() string {
+	c := *m.currency.get()
+	c.Formatter().Grapheme = ""
+	return c.Formatter().Format(m.amount)
+}
+
 // AsMajorUnits lets represent Money struct as subunits (float64) in given Currency value
 func (m *Money) AsMajorUnits() float64 {
 	c := m.currency.get()
