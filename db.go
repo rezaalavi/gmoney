@@ -30,7 +30,12 @@ func (m *Money) Value() (driver.Value, error) {
 		code = m.currency.Code
 	}
 
-	return fmt.Sprintf("%."+cast.ToString(m.currency.Fraction)+"f%s%s", m.Amount(), DBMoneyValueSeparator, code), nil
+	fraction := int32(2)
+	if m.currency != nil {
+		fraction = m.currency.Fraction
+	}
+
+	return fmt.Sprintf("%."+cast.ToString(fraction)+"f%s%s", m.Amount(), DBMoneyValueSeparator, code), nil
 }
 
 // Scan implements sql.Scanner to deserialize a Money instance from a DBMoneyValueSeparator-separated string
