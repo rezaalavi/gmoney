@@ -109,7 +109,11 @@ func (m *Money) Currency() *Currency {
 
 // Amount returns a copy of the internal monetary value as an int64.
 func (m *Money) Amount() float64 {
-	val, _ := m.amount.Truncate(m.currency.Fraction).Float64()
+	fraction := int32(2)
+	if m.currency != nil {
+		fraction = m.currency.Fraction
+	}
+	val, _ := m.amount.Truncate(fraction).Float64()
 	return val
 }
 
