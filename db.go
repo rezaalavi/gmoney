@@ -25,7 +25,12 @@ const (
 // Value implements driver.Valuer to serialise a Money instance into a delimited string using the DBMoneyValueSeparator
 // for example: "amount|currency_code"
 func (m *Money) Value() (driver.Value, error) {
-	return fmt.Sprintf("%."+cast.ToString(m.currency.Fraction)+"f%s%s", m.Amount(), DBMoneyValueSeparator, m.Currency().Code), nil
+	code := ""
+	if m.currency != nil {
+		code = m.currency.Code
+	}
+
+	return fmt.Sprintf("%."+cast.ToString(m.currency.Fraction)+"f%s%s", m.Amount(), DBMoneyValueSeparator, code), nil
 }
 
 // Scan implements sql.Scanner to deserialize a Money instance from a DBMoneyValueSeparator-separated string
