@@ -38,13 +38,22 @@ func (m *Money) Scan(src interface{}) error {
 	switch src := src.(type) {
 	case string:
 		parts := strings.Split(src, DBMoneyValueSeparator)
-		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		if len(parts) != 2 || parts[0] == "" {
 			return fmt.Errorf("%#v is not valid to scan into Money; update your query to return a money.DBMoneyValueSeparator-separated pair of \"amount%scurrency_code\"", src, DBMoneyValueSeparator)
 		}
 
 		_amount := cast.ToFloat64(parts[0])
 		amount = decimal.NewFromFloat(_amount)
 
+		if amount.IsZero() && parts[1] == "" {
+			*m = Money{
+				amount: amount,
+			}
+			return nil
+		}
+		if parts[1] == "" {
+			return fmt.Errorf("%#v is not valid to scan into Money; update your query to return a money.DBMoneyValueSeparator-separated pair of \"amount%scurrency_code\"", src, DBMoneyValueSeparator)
+		}
 		if err := currency.Scan(parts[1]); err != nil {
 			return fmt.Errorf("scanning %#v into a Currency: %v", parts[1], err)
 		}
